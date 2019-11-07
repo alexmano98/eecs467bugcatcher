@@ -7,12 +7,13 @@
 #include <signal.h>
 #include <sys/time.h>
 
-#include <lcm/lcm-cpp.hpp>
-#include <lcmtypes/lidar_t.hpp>
+#include <bot_msgs/lidar_t.h>
 
 #include <common/rplidar.h>
-#include <common/lcm_config.h> 
 #include <common/timestamp.h>
+
+#include <map>
+#include "ros/ros.h"
 
 #ifndef _countof
 #define _countof(_Array) (int)(sizeof(_Array) / sizeof(_Array[0]))
@@ -59,19 +60,22 @@ int main(int argc, const char * argv[]) {
     u_result     op_result;
     uint16_t pwm = 700;
 
-/** speed stabilization tests
-int updateHZ_count = 0;
-int speeds[] = {300, 700, 250, 850};
-int speed_at = 0;
-float stab_time = 0.0f;
-uint64_t changed_time = 0;
-uint prev_size[] = {0, 0, 0};
-bool stabilized = false;
-**/
+    /** speed stabilization tests
+    int updateHZ_count = 0;
+    int speeds[] = {300, 700, 250, 850};
+    int speed_at = 0;
+    float stab_time = 0.0f;
+    uint64_t changed_time = 0;
+    uint prev_size[] = {0, 0, 0};
+    bool stabilized = false;
+    **/
 
-    lcm::LCM lcmConnection(MULTICAST_URL);
+    ros::init(arc, argv, "rplidar_driver");
+    ros::NodeHandle rosConnection;
 
-    if(!lcmConnection.good()){ return 1; }
+    if(!rosConnection.ok()){ return 1; }
+
+    std::map<std::string, ros::Publisher> pubs;     // map of topic names to publishers
 
     printf("LIDAR data grabber for RPLIDAR.\n"
            "Version: %s\n", RPLIDAR_SDK_VERSION);
@@ -234,8 +238,7 @@ bool stabilized = false;
 //                    newLidar.times[pos]);
 //		printf("%03.2f,%08.2f,%f\n", newLidar.thetas[pos], newLidar.ranges[pos], newLidar.intensities[pos]);
             }
-
-            lcmConnection.publish("LIDAR", &newLidar);
+            pubs["LIDAR"].publish(newLidar);
         }
 
         if (ctrl_c_pressed){ 

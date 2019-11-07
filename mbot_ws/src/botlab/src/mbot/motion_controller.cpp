@@ -1,21 +1,22 @@
 #include <mbot/mbot_channels.h>
 #include <common/timestamp.h>
-#include <lcmtypes/mbot_motor_command_t.hpp>
-#include <lcmtypes/odometry_t.hpp>
-#include <lcmtypes/pose_xyt_t.hpp>
-#include <lcmtypes/robot_path_t.hpp>
-#include <lcmtypes/timestamp_t.hpp>
-#include <lcmtypes/message_received_t.hpp>
+#include <bot_msgs/mbot_motor_command_t.h>
+#include <bot_msgs/odometry_t.h>
+#include <bot_msgs/pose_xyt_t.h>
+#include <bot_msgs/robot_path_t.h>
+#include <bot_msgs/timestamp_t.h>
+#include <bot_msgs/message_received_t.h>
 #include <common/angle_functions.hpp>
 #include <common/pose_trace.hpp>
-#include <common/lcm_config.h>
 #include <slam/slam_channels.h>
-#include <lcm/lcm-cpp.hpp>
 #include <algorithm>
 #include <iostream>
 #include <cassert>
 #include <signal.h>
 #include <unistd.h>
+#include <vector>
+
+#include "ros/ros.h"
 
 
 int num_points_reached = 3; // number of points reached in the current target path
@@ -43,7 +44,7 @@ public:
     /**
     * Constructor for MotionController.
     */
-    MotionController(lcm::LCM * instance) : lcmInstance(instance)
+    MotionController(ros::NodeHandle * nodeInstance) : nodeInstance_(nodeInstance)
     {
         ////////// TODO: Initialize your controller state //////////////
         
@@ -62,7 +63,7 @@ public:
     
     /**
     * updateCommand calculates the new motor command to send to the Mbot. This method is called after each call to
-    * lcm.handle. You need to check if you have sufficient data to calculate a new command, or if the previous command
+    * handle. You need to check if you have sufficient data to calculate a new command, or if the previous command
     * should just be used again until for feedback becomes available.
     * 
     * \return   The motor command to send to the mbot_driver.
@@ -207,38 +208,25 @@ public:
 
     bool timesync_initialized(){ return timesync_initialized_; }
 
-    void handleTimesync(const lcm::ReceiveBuffer* buf, const std::string& channel, const timestamp_t* timesync){
-	timesync_initialized_ = true;
-	time_offset = timesync->utime-utime_now();
+    void handleTimesync(const bot_msgs::timestamp_t::ConstPtr& timesync){
+        timesync_initialized_ = true;
+        time_offset = timesync->data->utime-utime_now();
     }
     
     bool sleep = true;
-    void handlePath(const lcm::ReceiveBuffer* buf, const std::string& channel, const robot_path_t* path)
+    void handlePath(const bot_msgs::robot_path_t::ConstPtr& path)
     {
         /////// TODO: Implement your handler for new paths here ////////////////////
 
         // Don't updating the path if the path is being received too quickly
-        // if(num_points_reached != 3 && !haveReachedTarget()) return;
+        if(num_points_reached != 3 && !haveReachedTarget()) return;
 
         num_points_reached = 0;
 
-        targets_ = path->path;
+        targets_ = path->data->path;
         std::reverse(targets_.begin(), targets_.end()); // store first at back to allow for easy pop_back()
-        // if target distance is < threashold, remove points
-        //auto currPose = currentPose();
-        // while (targets_.size() > 1) {
-        //     auto dist = std::sqrt((targets_.back().x - currPose.x) * (targets_.back().x - currPose.x) + 
-        //     (targets_.back().y - currPose.y) * (targets_.back().y - currPose.y));
 
-        //     if(dist < 0.04) {
-        //         targets_.pop_back();
-        //     }
-        //     else {
-        //         break;
-        //     }
-        // }
-
-    	std::cout << "received new path at time: " << path->utime << "\n";
+    	std::cout << "received new path at time: " << path->data->utime << "\n";
     	for(auto pose : targets_){
     		std::cout << "(" << pose.x << "," << pose.y << "," << pose.theta << "); ";
     	}std::cout << "\n";
@@ -246,29 +234,29 @@ public:
         assignNextTarget();
 
         confirm.utime = now();
-        confirm.creation_time = path->utime;
+        confirm.creation_time = path->data->utime;
         confirm.channel = channel;
 
         //confirm that the path was received
-        lcmInstance->publish(MESSAGE_CONFIRMATION_CHANNEL, &confirm);
+        pubs[MESSAGE_CONFIRMATION_CHANNEL].publish(confirm);
     }
     
-    void handleOdometry(const lcm::ReceiveBuffer* buf, const std::string& channel, const odometry_t* odometry)
+    void handleOdometry(const bot_msgs::odometry_t::ConstPtr& odometry)
     {
         /////// TODO: Implement your handler for new odometry data ////////////////////
         
         pose_xyt_t pose;
-        pose.utime = odometry->utime;
-        pose.x = odometry->x;
-        pose.y = odometry->y;
-        pose.theta = odometry->theta;
+        pose.utime = odometry->data->utime;
+        pose.x = odometry->data->x;
+        pose.y = odometry->data->y;
+        pose.theta = odometry->data->theta;
         odomTrace_.addPose(pose);
     }
     
-    void handlePose(const lcm::ReceiveBuffer* buf, const std::string& channel, const pose_xyt_t* pose)
+    void handlePose(const bot_msgs::pose_xyt_t::ConstPtr& pose)
     {
         /////// TODO: Implement your handler for new pose data ////////////////////    
-        computeOdometryOffset(*pose);
+        computeOdometryOffset(pose->data);
     }
     
 private:
@@ -293,7 +281,10 @@ private:
     bool timesync_initialized_;
 
     message_received_t confirm;
-    lcm::LCM * lcmInstance;
+
+    ros::NodeHandle* nodeInstance_;                              // Instance of ros NodeHandle for communication
+    std::vector<ros::Subscriber> subs;
+    std::map<std::string, ros::Publisher> pubs;     // map of topic names to publishers
 
     int64_t now(){
 	return utime_now()+time_offset;
@@ -376,24 +367,33 @@ private:
 
 int main(int argc, char** argv)
 {
-    lcm::LCM lcmInstance(MULTICAST_URL);
-    
-    MotionController controller(&lcmInstance);
-    lcmInstance.subscribe(ODOMETRY_CHANNEL, &MotionController::handleOdometry, &controller);
-    lcmInstance.subscribe(SLAM_POSE_CHANNEL, &MotionController::handlePose, &controller);
-    lcmInstance.subscribe(CONTROLLER_PATH_CHANNEL, &MotionController::handlePath, &controller);
-    lcmInstance.subscribe(MBOT_TIMESYNC_CHANNEL, &MotionController::handleTimesync, &controller);
+    ros::init(argc, argv, "motion_controller");
+    ros::NodeHandle nodeInstance;
+    MotionController controller(&nodeInstance);
+
+    subs.push_back(nodeInstance_->subscribe(ODOMETRY_CHANNEL, 1000, MotionController::handleOdometry));
+    subs.push_back(nodeInstance_->subscribe(SLAM_POSE_CHANNEL, 1000, MotionController::handlePose));
+    subs.push_back(nodeInstance_->subscribe(CONTROLLER_PATH_CHANNEL, 1000, MotionController::handlePath));
+    subs.push_back(nodeInstance_->subscribe(MBOT_TIMESYNC_CHANNEL, 1000, MotionController::handleTimesync));
+
+    pubs[ODOMETRY_CHANNEL] = nodeInstance_.advertise<bot_msgs::odometry_t>(ODOMETRY_CHANNEL, 1000);
+    pubs[SLAM_POSE_CHANNEL] = nodeInstance_.advertise<bot_msgs::pose_xyt_t>(SLAM_POSE_CHANNEL, 1000);
+    pubs[CONTROLLER_PATH_CHANNEL] = nodeInstance_.advertise<bot_msgs::robot_path_t>(CONTROLLER_PATH_CHANNEL, 1000);
+    pubs[MBOT_TIMESYNC_CHANNEL] = nodeInstance_.advertise<bot_msgs::timestamp_t>(MBOT_TIMESYNC_CHANNEL, 1000);
 
     signal(SIGINT, exit);
     
-    while(true)
+    ros::Rate loop_rate(10);
+
+    while(ros::ok())
     {
-        lcmInstance.handleTimeout(50);  // update at 20Hz minimum
+        ros::spinOnce();
+        loop_rate.sleep(); // update at 20Hz minimum
 
     	if(controller.timesync_initialized()){
-            	mbot_motor_command_t cmd = controller.updateCommand();
-
-            	lcmInstance.publish(MBOT_MOTOR_COMMAND_CHANNEL, &cmd);
+            mbot_motor_command_t cmd = controller.updateCommand();
+            
+            pubs[MBOT_MOTOR_COMMAND_CHANNEL].publish(cmd);
     	}
     }
     
