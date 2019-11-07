@@ -1,7 +1,7 @@
 #include <slam/moving_laser_scan.hpp>
 #include <common/interpolation.hpp>
-#include <lcmtypes/lidar_t.hpp>
-#include <lcmtypes/pose_xyt_t.hpp>
+#include <bot_msgs/lidar_t.h>
+#include <bot_msgs/pose_xyt_t.h>
 #include <common/angle_functions.hpp>
 #include <cassert>
     

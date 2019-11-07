@@ -1,11 +1,10 @@
-#include <common/lcm_config.h>
 #include <mbot/mbot_channels.h>
 #include <bot_msgs/robot_path_t.hpp>
-#include <lcm/lcm-cpp.hpp>
 #include <iostream>
 #include <unistd.h>
 #include <cmath>
 #include <map>
+#include <string>
 
 #include "ros/ros.h"
 
@@ -69,7 +68,6 @@ int main(int argc, char** argv)
     
     path.path_length = path.path.size();
     
-    ros::NodeHandle nodeInstance(MULTICAST_URL);
     std::map<std::string, ros::Publisher> pubs;     // map of topic names to publishers
 	std::cout << "publish to: " << CONTROLLER_PATH_CHANNEL << std::endl;
     pubs[CONTROLLER_PATH_CHANNEL].publish(path);

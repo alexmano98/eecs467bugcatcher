@@ -39,7 +39,7 @@ BotGui::BotGui(ros::NodeHandle * nodeInstance, int argc, char** argv, int widthI
 , nextColorIndex_(0)
 , nodeInstance_(nodeInstance)
 {
-    assert(lcmInstance_);
+    assert(nodeInstance_);
     
     odometry_.x = odometry_.y = odometry_.theta = 0.0;
     slamPose_.x = slamPose_.y = slamPose_.theta = 0.0;
@@ -167,54 +167,6 @@ int BotGui::onKeyEvent(vx_layer_t* layer, vx_key_event_t* event)
         fs.close();
     }
 
-    // If the key is released, the wheel speed goes to 0, so the robot stops immediately.
-    // Otherwise, use the requested velocity, per the command slider.
-/*    cmdSpeed_ = gtk_range_get_value(GTK_RANGE(cmdSlider_));
-    rightTrim_ = gtk_range_get_value(GTK_RANGE(trimSlider_)) / 100.0;
-    double leftSpeed = event->released ? 0.0 : cmdSpeed_;
-    double rightSpeed = (1.0 + rightTrim_) * leftSpeed;
-
-    // If one of the arrow keys is being pressed, then send the appropriate command out
-    if(event->key_code == VX_KEY_UP)
-    {
-        // Drive forward
-        mbot_motor_command_t cmd;
-        cmd.left_motor_enabled = cmd.right_motor_enabled = 1;
-        cmd.left_motor_speed = leftSpeed;
-        cmd.right_motor_speed = rightSpeed;
-        lcmInstance_->publish(MBOT_MOTOR_COMMAND_CHANNEL, &cmd);
-//	std::cout << "L: " << cmd.left_motor_speed << " R: " << cmd.right_motor_speed << "\n";
-    }
-    else if(event->key_code == VX_KEY_DOWN)
-    {
-        // Drive backward
-        mbot_motor_command_t cmd;
-        cmd.left_motor_enabled = cmd.right_motor_enabled = 1;
-        cmd.left_motor_speed = -leftSpeed;
-        cmd.right_motor_speed = -rightSpeed;
-        lcmInstance_->publish(MBOT_MOTOR_COMMAND_CHANNEL, &cmd);
-
-//	std::cout << "L: " << cmd.left_motor_speed << " R: " << cmd.right_motor_speed << "\n";
-    }
-    else if(event->key_code == VX_KEY_LEFT)
-    {
-        // Turn left
-        mbot_motor_command_t cmd;
-        cmd.left_motor_enabled = cmd.right_motor_enabled = 1;
-        cmd.left_motor_speed = -leftSpeed;
-        cmd.right_motor_speed = rightSpeed;
-        lcmInstance_->publish(MBOT_MOTOR_COMMAND_CHANNEL, &cmd);
-    }
-    else if(event->key_code == VX_KEY_RIGHT)
-    {
-        // Turn right
-        mbot_motor_command_t cmd;
-        cmd.left_motor_enabled = cmd.right_motor_enabled = 1;
-        cmd.left_motor_speed = leftSpeed;
-        cmd.right_motor_speed = -rightSpeed;
-        lcmInstance_->publish(MBOT_MOTOR_COMMAND_CHANNEL, &cmd);
-    }
-    */
     return 0;
 }
 
