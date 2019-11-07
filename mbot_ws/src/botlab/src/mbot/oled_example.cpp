@@ -1,22 +1,25 @@
-#include <lcm/lcm-cpp.hpp>
-
-#include <lcmtypes/oled_message_t.hpp>
+#include <bot_msgs/oled_message_t.h>
 #include <common/timestamp.h>
-#include <common/lcm_config.h>
 
 #include <ctime>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <iomanip>
+#include <map>
 
 #include <unistd.h>
 
+#include "ros/ros.h"
+
 int main(int argc, char ** argv)
 {
-	lcm::LCM lcm(MULTICAST_URL);
-	if(!lcm.good())
-		return 1;
+	ros::init(arc, argv, "rplidar_driver");
+    ros::NodeHandle rosConnection;
+
+    if(!rosConnection.ok()){ return 1; }
+
+	std::map<std::string, ros::Publisher> pubs;     // map of topic names to publishers
 
 	oled_message_t message;
 
@@ -38,7 +41,7 @@ int main(int argc, char ** argv)
 		message.line1 = ss.str();
 		message.line2 = "I really really really really <3 robots!";
 
-		lcm.publish(OLED_CHAN, &message);
+		pubs[OLED_CHAN].publish(message);
 
 		ss.clear();
 		ss.str(std::string());

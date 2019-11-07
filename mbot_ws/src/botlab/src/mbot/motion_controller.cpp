@@ -383,7 +383,7 @@ int main(int argc, char** argv)
 
     signal(SIGINT, exit);
     
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(20);
 
     while(ros::ok())
     {

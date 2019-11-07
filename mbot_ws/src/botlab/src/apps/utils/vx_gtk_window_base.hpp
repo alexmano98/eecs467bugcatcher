@@ -47,7 +47,7 @@ public:
     * run launches the Gtk main thread and starts a render thread that updates at the specified number of frames per
     * second. The run method will exit when the Gtk window is closed by the user.
     *
-    * run should only be called once the GUI application initialization, like LCM message subscription, is completed
+    * run should only be called once the GUI application initialization, like ROS message subscription, is completed
     * because it blocks until the GUIwindow is closed.
     */
     void run(void);
@@ -109,8 +109,8 @@ public:
     /**
     * render is called for each iteration of the run-loop.
     *
-    * The render method is called from the run thread, which will be a different from the thread LCM messages arrive on.
-    * As a result, any LCM-based data will need to be locked with a mutex before being read for rendering.
+    * The render method is called from the run thread, which will be a different from the thread ROS messages arrive on.
+    * As a result, any ROS-based data will need to be locked with a mutex before being read for rendering.
     */
     virtual void render(void) = 0;
     
