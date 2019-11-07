@@ -8,8 +8,8 @@ project(botlab)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  message_generation
+    bot_msgs
+    roscpp
 )
 
 ## System dependencies are found with CMake's conventions
@@ -44,29 +44,6 @@ find_package(catkin REQUIRED COMPONENTS
 ##     and list every .msg/.srv/.action file to be processed
 ##   * uncomment the generate_messages entry below
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
-
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   delta_odometry_t.msg
-#   exploration_status_t.msg
-#   forward_angular_velocities_t.msg
-#   lidar_t.msg
-#   mbot_encoder_t.msg
-#   mbot_imu_t.msg
-#   mbot_motor_command_t.msg
-#   message_received_t.msg
-#   occupancy_grid_t.msg
-#   odometry_t.msg
-#   oled_message_t.msg
-#   particle_t.msg
-#   particles_t.msg
-#   pose_xyt_t.msg
-#   reset_odometry_t.msg
-#   robot_path_t.msg
-#   timestamp_t.msg
-#   wifi_data_t.msg
-# )
 
 ## Generate services in the 'srv' folder
 # add_service_files(

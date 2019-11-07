@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import lcm
 import sys
 import cv2
 import numpy as np
