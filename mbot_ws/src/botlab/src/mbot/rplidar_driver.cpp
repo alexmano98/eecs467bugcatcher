@@ -6,8 +6,10 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <math.h>
 
 #include <bot_msgs/lidar_t.h>
+#include <sensor_msgs/LaserScan.h>
 
 #include <common/rplidar.h>
 #include <common/timestamp.h>
@@ -76,6 +78,7 @@ int main(int argc, const char * argv[]) {
     if(!rosConnection.ok()){ return 1; }
 
     std::map<std::string, ros::Publisher> pubs;     // map of topic names to publishers
+    pubs["scan"] = rosConnection.advertise<sensor_msgs::LaserScan>("LIDAR", 50);
 
     printf("LIDAR data grabber for RPLIDAR.\n"
            "Version: %s\n", RPLIDAR_SDK_VERSION);
@@ -238,7 +241,29 @@ int main(int argc, const char * argv[]) {
 //                    newLidar.times[pos]);
 //		printf("%03.2f,%08.2f,%f\n", newLidar.thetas[pos], newLidar.ranges[pos], newLidar.intensities[pos]);
             }
-            pubs["LIDAR"].publish(newLidar);
+
+            ros::Time scan_time = ros::Time::now();
+
+
+            // Convert to sensor_msgs::LaserScan
+            sensor_msgs::LaserScan scan;
+            scan.header.stamp = scan_time;
+            scan.header.frame_id = "laser_frame";
+            scan.angle_min = 0;
+            scan.angle_max = 2 * M_PI;
+            scan.angle_increment = (2 * M_PI) / newLidar.num_ranges;
+            scan.time_increment = (1 / 20) / (newLidar.num_ranges); // frequency may be 20 (TODO Check if this is correct)
+            scan.range_min = 0.0;
+            scan.range_max = 100.0; // TODO Maybe change this min and max???
+
+            scan.ranges.resize(newLidar.num_ranges);
+            scan.intensities.resize(newLidar.num_ranges);
+            for(unsigned int i = 0; i < newLidar.num_ranges; ++i){
+                scan.ranges[i] = newLidar.ranges[i];
+                scan.intensities[i] = newLidar.intensities[i];
+            }
+
+            pubs["LIDAR"].publish(scan);
         }
 
         if (ctrl_c_pressed){ 
