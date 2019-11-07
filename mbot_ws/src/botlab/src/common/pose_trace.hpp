@@ -1,7 +1,7 @@
 #ifndef COMMON_POSE_TRACE_HPP
 #define COMMON_POSE_TRACE_HPP
 
-#include <lcmtypes/pose_xyt_t.hpp>
+#include <bot_msgs/pose_xyt_t.h>
 #include <cstdint>
 #include <vector>
 
