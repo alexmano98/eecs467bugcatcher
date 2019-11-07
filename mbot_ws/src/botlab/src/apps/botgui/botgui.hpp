@@ -3,21 +3,23 @@
 
 #include <apps/utils/vx_gtk_window_base.hpp>
 #include <common/pose_trace.hpp>
-#include <common/lcm_config.h>
+#include <common/lcm_config.h> //TODO FIX THIS
 #include <slam/occupancy_grid.hpp>
-#include <lcmtypes/exploration_status_t.hpp>
-#include <lcmtypes/odometry_t.hpp>
-#include <lcmtypes/particles_t.hpp>
-#include <lcmtypes/robot_path_t.hpp>
-#include <lcmtypes/lidar_t.hpp>
 #include <planning/frontiers.hpp>
 #include <planning/obstacle_distance_grid.hpp>
 #include <vx/vx_display.h>
 #include <gtk/gtk.h>
-#include <lcm/lcm-cpp.hpp>
+// #include <lcm/lcm-cpp.hpp>
+#include "ros/ros.h"
+#include "bot_msgs/exploration_status_t.h"
+#include <bot_msgs/odometry_t.hpp>
+#include <bot_msgs/particles_t.hpp>
+#include <bot_msgs/robot_path_t.hpp>
+#include <bot_msgs/lidar_t.hpp>
 #include <atomic>
 #include <map>
 #include <mutex>
+#include <vector>
 #include <string>
 
 
@@ -31,7 +33,7 @@ public:
     /**
     * Constructor for BotGui.
     *
-    * \param    lcmInstance             Instance of LCM to use for subscription to and transmission of messages
+    * \param    nodeInstance            Instance of ROS handle to use for subscription to and transmission of messages
     * \param    argc                    Count of command-line arguments for the program
     * \param    argv                    Command-line arguments for the program
     * \param    widthInPixels           Initial width of the GTK window to create
@@ -42,7 +44,7 @@ public:
     * \pre heightInPixels > 0
     * \pre framesPerSecond > 0
     */
-    BotGui(lcm::LCM* lcmInstance, int argc, char** argv, int widthInPixels, int heightInPixels, int framesPerSecond);
+    BotGui(ros::NodeHandle * nodeInstance, int argc, char** argv, int widthInPixels, int heightInPixels, int framesPerSecond);
     
     // GTK widget event handlers -- note these methods should only be called from the GTK event loop!
     void clearAllTraces(void);
@@ -57,18 +59,14 @@ public:
     void onDisplayStart(vx_display_t* display);// override;
     void render(void);// override;
 
-    // LCM handling
-    void handleOccupancyGrid(const lcm::ReceiveBuffer* rbuf, 
-                             const std::string& channel, 
-                             const occupancy_grid_t* map);
-    void handleParticles(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const particles_t* particles);
-    void handlePose(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const pose_xyt_t* pose);
-    void handleOdometry(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const odometry_t* odom);
-    void handleLaser(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const lidar_t* laser);
-    void handlePath(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const robot_path_t* path);
-    void handleExplorationStatus(const lcm::ReceiveBuffer* rbuf, 
-                                 const std::string& channel, 
-                                 const exploration_status_t* status);
+    // ROS handling
+    void handleOccupancyGrid(const bot_msgs::occupancy_grid_t::ConstPtr& map);
+    void handleParticles(const bot_msgs::particles_t::ConstPtr& particles);
+    void handlePose(const bot_msgs::pose_xyt_t::ConstPtr& pose);
+    void handleOdometry(const bot_msgs::odometry_t::ConstPtr& odom);
+    void handleLaser(const bot_msgs::lidar_t::ConstPtr& laser);
+    void handlePath(const bot_msgs::robot_path_t::ConstPtr& path);
+    void handleExplorationStatus(const bot_msgs::exploration_status_t::ConstPtr& status);
 
 private:
     
@@ -128,7 +126,10 @@ private:
     Point<float> mouseWorldCoord_;                  // Global/world coordinate of the current mouse position
     Point<int>   mouseGridCoord_;                   // Grid cell the mouse is currently in
     
-    lcm::LCM* lcmInstance_;                         // Instance of LCM to use for communication
+    // lcm::LCM* lcmInstance_;                         // Instance of LCM to use for communication
+    ros::NodeHandle* nodeInstance_;                              // Instance of ros NodeHandle for communication
+    std::vector<ros::Subscriber> subs;
+    std::map<std::string, ros::Publisher> pubs;     // map of topic names to publishers
     std::mutex vxLock_;                             // Mutex for incoming data -- LCM runs on different thread than GTK+
     
     // Additional helpers

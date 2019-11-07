@@ -2,7 +2,7 @@
 #include <apps/utils/drawing_functions.hpp>
 #include <common/grid_utils.hpp>
 #include <common/timestamp.h>
-#include <lcmtypes/mbot_motor_command_t.hpp>
+#include <bot_msgs/mbot_motor_command_t.h>
 #include <mbot/mbot_channels.h>
 #include <optitrack/optitrack_channels.h>
 #include <planning/planning_channels.h>
@@ -17,6 +17,9 @@
 #include <cassert>
 #include <glib.h>
 #include <unistd.h>
+#include <vector>
+
+#include "ros/ros.h"
 
 #include <iostream>
 #include <fstream>
@@ -26,7 +29,7 @@ void clear_traces_pressed(GtkWidget* button, gpointer gui);
 void reset_state_pressed(GtkWidget* button, gpointer gui);
 
 
-BotGui::BotGui(lcm::LCM* lcmInstance, int argc, char** argv, int widthInPixels, int heightInPixels, int framesPerSecond)
+BotGui::BotGui(ros::NodeHandle * nodeInstance, int argc, char** argv, int widthInPixels, int heightInPixels, int framesPerSecond)
 : VxGtkWindowBase(argc, argv, widthInPixels, heightInPixels, framesPerSecond)
 , haveLaser_(false)
 , havePath_(false)
@@ -34,7 +37,7 @@ BotGui::BotGui(lcm::LCM* lcmInstance, int argc, char** argv, int widthInPixels, 
 , shouldResetStateLabels_(false)
 , shouldClearTraces_(false)
 , nextColorIndex_(0)
-, lcmInstance_(lcmInstance)
+, nodeInstance_(nodeInstance)
 {
     assert(lcmInstance_);
     
@@ -113,7 +116,7 @@ int BotGui::onMouseEvent(vx_layer_t* layer,
         path.path_length = 2;
         path.path.push_back(odomPose);
         path.path.push_back(target);
-        lcmInstance_->publish(CONTROLLER_PATH_CHANNEL, &path);
+        pubs[CONTROLLER_PATH_CHANNEL].publish(path);
     }
     // If an Right-click, send a target to the A* planner
     else if((event->button_mask & VX_BUTTON3_MASK) && (event->modifiers == 0))
@@ -129,15 +132,15 @@ int BotGui::onMouseEvent(vx_layer_t* layer,
         planner.setMap(map_);
         robot_path_t plannedPath = planner.planPath(slamPose_, target);
         distances_ = planner.obstacleDistances();
-        lcmInstance_->publish(CONTROLLER_PATH_CHANNEL, &plannedPath);
+        pubs[CONTROLLER_PATH_CHANNEL].publish(plannedPath);
         
         std::cout << "completed in " << ((utime_now() - startTime) / 1000) << "ms\n";
     }
     
-    
-        std::lock_guard<std::mutex> autoLock(vxLock_);
-        mouseWorldCoord_ = worldPoint;
-        mouseGridCoord_ = global_position_to_grid_cell(worldPoint, map_);
+    ros::NodeHandle* n_
+    ros::NodeHandle* n_rd<std::mutex> autoLock(vxLock_);
+    ros::NodeHandle* n_rd_ = worldPoint;
+    ros::NodeHandle* n_d_ = global_position_to_grid_cell(worldPoint, map_);
     
     return 0;
 }
@@ -219,13 +222,24 @@ int BotGui::onKeyEvent(vx_layer_t* layer, vx_key_event_t* event)
 void BotGui::onDisplayStart(vx_display_t* display)
 {
     VxGtkWindowBase::onDisplayStart(display);
-    lcmInstance_->subscribe(SLAM_MAP_CHANNEL, &BotGui::handleOccupancyGrid, this);
-    lcmInstance_->subscribe(SLAM_PARTICLES_CHANNEL, &BotGui::handleParticles, this);
-    lcmInstance_->subscribe(CONTROLLER_PATH_CHANNEL, &BotGui::handlePath, this);
-    lcmInstance_->subscribe(LIDAR_CHANNEL, &BotGui::handleLaser, this);
-    lcmInstance_->subscribe(".*_POSE", &BotGui::handlePose, this);  // NOTE: Subscribe to ALL _POSE channels!
-    lcmInstance_->subscribe(".*ODOMETRY", &BotGui::handleOdometry, this); // NOTE: Subscribe to all channels with odometry in the name
-    lcmInstance_->subscribe(EXPLORATION_STATUS_CHANNEL, &BotGui::handleExplorationStatus, this);
+    
+    subs.push_back(nodeInstance_->subscribe(SLAM_MAP_CHANNEL, 1000, BotGui::handleOccupancyGrid));
+    subs.push_back(nodeInstance_->subscribe(SLAM_PARTICLES_CHANNEL, 1000, BotGui::handleParticles));
+    subs.push_back(nodeInstance_->subscribe(CONTROLLER_PATH_CHANNEL, 1000, BotGui::handlePath));
+    subs.push_back(nodeInstance_->subscribe(LIDAR_CHANNEL, 1000, BotGui::handleLaser));
+    subs.push_back(nodeInstance_->subscribe("SLAM_POSE", 1000, BotGui::handlePose)); 
+    // subs.push_back(nodeInstance_->subscribe("TRUE_POSE", 1000, BotGui::handlePose));
+    subs.push_back(nodeInstance_->subscribe(".*ODOMETRY", 1000, BotGui::handleOdometry)); // TODO CHECK IF THIS WORKS: Subscribe to all channels with odometry in the name
+    subs.push_back(nodeInstance_->subscribe(EXPLORATION_STATUS_CHANNEL, 1000, BotGui::handleExplorationStatus));
+
+    pubs[SLAM_MAP_CHANNEL] = nodeInstance_.advertise<bot_msgs::occupance_grid_t>(SLAM_MAP_CHANNEL, 1000);
+    pubs[SLAM_PARTICLES_CHANNEL] = nodeInstance_.advertise<bot_msgs::particles_t>(SLAM_PARTICLES_CHANNEL, 1000);
+    pubs[CONTROLLER_PATH_CHANNEL] = nodeInstance_.advertise<bot_msgs::robot_path_t>(CONTROLLER_PATH_CHANNEL, 1000);
+    pubs[LIDAR_CHANNEL] = nodeInstance_.advertise<bot_msgs::lidar_t>(LIDAR_CHANNEL, 1000);
+    pubs["SLAM_POSE"] = nodeInstance_.advertise<bot_msgs::pose_xyt_t>("SLAM_POSE", 1000);
+    // pubs["TRUE_POSE"] = nodeInstance_.advertise<bot_msgs::pose_xyt_t>("TRUE_POSE", 1000);
+    pubs[".*ODOMETRY"] = nodeInstance_.advertise<bot_msgs::pose_xyt_t>(".*ODOMETRY", 1000);
+    pubs[EXPLORATION_STATUS_CHANNEL] = nodeInstance_.advertise<bot_msgs::exploration_status_t>(EXPLORATION_STATUS_CHANNEL, 1000);
 }
 
 
@@ -321,31 +335,29 @@ void BotGui::render(void)
 }
 
 
-void BotGui::handleOccupancyGrid(const lcm::ReceiveBuffer* rbuf, 
-                                 const std::string& channel, 
-                                 const occupancy_grid_t* map)
+void BotGui::handleOccupancyGrid(const bot_msgs::occupancy_grid_t::ConstPtr& map)
 {
     std::lock_guard<std::mutex> autoLock(vxLock_);
-    map_.fromLCM(*map);
+    map_.fromLCM(map->data);
     frontiers_ = find_map_frontiers(map_, slamPose_);
 }
 
 
-void BotGui::handleParticles(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const particles_t* particles)
+void BotGui::handleParticles(const bot_msgs::particles_t::ConstPtr& particles)
 {
     std::lock_guard<std::mutex> autoLock(vxLock_);
-    slamParticles_ = *particles;
+    slamParticles_ = partices->data;
 }
 
 
-void BotGui::handlePose(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const pose_xyt_t* pose)
+void BotGui::handlePose(const bot_msgs::pose_xyt_t::ConstPtr& pose)
 {
     std::lock_guard<std::mutex> autoLock(vxLock_);
-    addPose(*pose, channel);
+    addPose(pose->data, channel);
     
     if(channel == SLAM_POSE_CHANNEL)
     {
-        slamPose_ = *pose;
+        slamPose_ = pose->data;
 
         // slamPoses_.push_back(*pose); // stores all published SLAM poses
     }
@@ -356,11 +368,11 @@ void BotGui::handlePose(const lcm::ReceiveBuffer* rbuf, const std::string& chann
 }
 
 
-void BotGui::handleOdometry(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const odometry_t* odom)
+void BotGui::handleOdometry(const bot_msgs::odometry_t::ConstPtr& odom)
 {
     std::lock_guard<std::mutex> autoLock(vxLock_);
     
-    odometry_ = *odom;
+    odometry_ = odom->data;
     
     // Also, save a PoseTrace for the pure odometry output
     pose_xyt_t odomPose;
@@ -372,28 +384,26 @@ void BotGui::handleOdometry(const lcm::ReceiveBuffer* rbuf, const std::string& c
 }
 
 
-void BotGui::handleLaser(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const lidar_t* laser)
+void BotGui::handleLaser(const bot_msgs::lidar_t::ConstPtr& laser)
 {
     std::lock_guard<std::mutex> autoLock(vxLock_);
-    laser_ = *laser;
+    laser_ = laser->data;
     haveLaser_ = true;
 }
 
 
-void BotGui::handlePath(const lcm::ReceiveBuffer* rbuf, const std::string& channel, const robot_path_t* path)
+void BotGui::handlePath(const bot_msgs::robot_path_t::ConstPtr& path)
 {
     std::lock_guard<std::mutex> autoLock(vxLock_);
-    path_ = *path;
+    path_ = path->data;
     havePath_ = true;
 }
 
 
-void BotGui::handleExplorationStatus(const lcm::ReceiveBuffer* rbuf, 
-                                     const std::string& channel, 
-                                     const exploration_status_t* status)
+void BotGui::handleExplorationStatus(const bot_msgs::exploration_status_t::ConstPtr& status)
 {
     std::lock_guard<std::mutex> autoLock(vxLock_);
-    exploreStatus_.push_back(*status);
+    exploreStatus_.push_back(status->data);
 }
 
 
