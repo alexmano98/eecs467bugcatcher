@@ -1,8 +1,27 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PointStamped.h>
 #include <tf/transform_listener.h>
+#include <sensor_msgs/LaserScan.h>
 
-void transformPoint(const tf::TransformListener& listener){
+
+
+
+
+
+
+/*
+###########################################
+
+TODO
+THIS FILE MAY NOT BE NEEDED
+
+
+##########################################
+*/
+
+
+
+geometry_msgs::PointStamped transformPoint(const tf::TransformListener& listener){
     //we'll create a point in the base_laser frame that we'd like to transform to the base_link frame
     geometry_msgs::PointStamped laser_point;
     laser_point.header.frame_id = "base_laser";
@@ -23,10 +42,21 @@ void transformPoint(const tf::TransformListener& listener){
         ROS_INFO("base_laser: (%.2f, %.2f. %.2f) -----> base_link: (%.2f, %.2f, %.2f) at time %.2f",
             laser_point.point.x, laser_point.point.y, laser_point.point.z,
             base_point.point.x, base_point.point.y, base_point.point.z, base_point.header.stamp.toSec());
+
+        return base_point;
     }
     catch(tf::TransformException& ex){
         ROS_ERROR("Received an exception trying to transform a point from \"base_laser\" to \"base_link\": %s", ex.what());
+        return;
     }
+
+    
+}
+
+void handle_lidar(const sensor_msgs::LaserScan::ConstrPtr& laser){
+    sensor_msgs::LaserScan scan = laser->data;
+
+
 }
 
 int main(int argc, char** argv){
@@ -35,8 +65,10 @@ int main(int argc, char** argv){
 
     tf::TransformListener listener(ros::Duration(10));
 
+    ros::Subscriber sub = n.subscribe("LIDAR", 1000, handle_lidar);
+
     //we'll transform a point once every second
-    ros::Timer timer = n.createTimer(ros::Duration(1.0), boost::bind(&transformPoint, boost::ref(listener)));
+    // ros::Timer timer = n.createTimer(ros::Duration(1.0), boost::bind(&transformPoint, boost::ref(listener)));
 
     ros::spin();
 
