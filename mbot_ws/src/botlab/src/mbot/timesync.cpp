@@ -3,10 +3,11 @@
 #include <mbot/mbot_channels.h>
 #include <iostream>
 #include <map>
+#include <string>
 #include "ros/ros.h"
 
 /**
-	A program that gets the current system time and publishes an lcm message of the current time
+	A program that gets the current system time and publishes an ROS message of the current time
 **/
 int main(){
 

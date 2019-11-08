@@ -3,13 +3,12 @@
 
 #include <apps/utils/vx_gtk_window_base.hpp>
 #include <common/pose_trace.hpp>
-#include <common/lcm_config.h> //TODO FIX THIS
+// #include <common/lcm_config.h> //TODO FIX THIS // we don't use that multicast channel
 #include <slam/occupancy_grid.hpp>
 #include <planning/frontiers.hpp>
 #include <planning/obstacle_distance_grid.hpp>
 #include <vx/vx_display.h>
 #include <gtk/gtk.h>
-// #include <lcm/lcm-cpp.hpp>
 #include "ros/ros.h"
 #include "bot_msgs/exploration_status_t.h"
 #include <bot_msgs/odometry_t.hpp>
@@ -126,11 +125,10 @@ private:
     Point<float> mouseWorldCoord_;                  // Global/world coordinate of the current mouse position
     Point<int>   mouseGridCoord_;                   // Grid cell the mouse is currently in
     
-    // lcm::LCM* lcmInstance_;                         // Instance of LCM to use for communication
     ros::NodeHandle* nodeInstance_;                              // Instance of ros NodeHandle for communication
     std::vector<ros::Subscriber> subs;
     std::map<std::string, ros::Publisher> pubs;     // map of topic names to publishers
-    std::mutex vxLock_;                             // Mutex for incoming data -- LCM runs on different thread than GTK+
+    std::mutex vxLock_;                             // Mutex for incoming data -- ROS runs on different thread than GTK+
     
     // Additional helpers
     void addPose(const pose_xyt_t& pose, const std::string& channel);

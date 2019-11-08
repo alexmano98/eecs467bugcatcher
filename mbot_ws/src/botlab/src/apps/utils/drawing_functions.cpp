@@ -1,10 +1,10 @@
 #include <apps/utils/drawing_functions.hpp>
-#include <common/pose_trace.hpp>
-#include <lcmtypes/pose_xyt_t.hpp>
-#include <lcmtypes/lidar_t.hpp>
-#include <lcmtypes/robot_path_t.hpp>
-#include <lcmtypes/particle_t.hpp>
-#include <lcmtypes/particles_t.hpp>
+#include <common/pose_trace.h>
+#include <bot_msgs/pose_xyt_t.h>
+#include <bot_msgs/lidar_t.h>
+#include <bot_msgs/robot_path_t.h>
+#include <bot_msgs/particle_t.h>
+#include <bot_msgs/particles_t.h>
 #include <planning/frontiers.hpp>
 #include <planning/obstacle_distance_grid.hpp>
 #include <slam/occupancy_grid.hpp>
